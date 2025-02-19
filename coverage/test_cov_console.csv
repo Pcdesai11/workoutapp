@@ -1,0 +1,24 @@
+File,% Branch,% Funcs,% Lines,Uncovered Line #s 
+lib/,,,, 
+main.dart,100.00,100.00,12.50,"7,8,9,10,19,21,23"
+lib/database/,,,, 
+converters.dart,0.00,0.00,0.00,no unit testing
+daos.dart,0.00,0.00,0.00,no unit testing
+database.dart,0.00,0.00,0.00,no unit testing
+database.g.dart,0.00,0.00,0.00,no unit testing
+entities.dart,0.00,0.00,0.00,no unit testing
+lib/models/,,,, 
+mock_workout_plan.dart,100.00,100.00,0.00,"4,6,7,12,17,22,27,32,37"
+models.dart,100.00,100.00,100.00,""
+workout_plan.dart,100.00,100.00,100.00,""
+lib/pages/,,,, 
+download_plan_page.dart,0.00,0.00,0.00,no unit testing
+workout_details.dart,100.00,100.00,100.00,""
+workout_history_page.dart,100.00,100.00,68.57,"23,24,26,27,28,29,60,61,63,64,65"
+workout_recording_page.dart,100.00,100.00,88.24,"36,41,42,43,44,47,48,49"
+lib/state/,,,, 
+workout_state.dart,100.00,100.00,100.00,""
+lib/widgets/,,,, 
+exercise_inputs.dart,100.00,100.00,63.21,"103,104,105,106,107,185,189,191,192,198,200,201,202,203,207,209,210,213,214,215,216,232,236,238,239,245,247,248,249,250,253,254,256,257,258,259,260,261,262"
+recent_performance_widget.dart,100.00,100.00,100.00,""
+All files with unit testing,100.00,100.00,73.09,""
