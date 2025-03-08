@@ -1,15 +1,20 @@
 // lib/main.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/mock_workout_plan.dart';
-import 'pages/workout_history_page.dart';
+import 'router/app_router.dart';
 import 'state/workout_state.dart';
 import 'database/database.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseAuth.instance.setLanguageCode("en");
   final database = await AppDatabase.buildDatabase();
   runApp(MyApp(database: database));
 }
@@ -21,14 +26,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appRouter = AppRouter(database: database);
+
     return ChangeNotifierProvider(
       create: (context) => WorkoutState(
         database: database,
         defaultPlan: mockWorkoutPlan,
       )..loadWorkouts()..loadPlans(),
-      child: MaterialApp(
+      child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Workout Tracker',
+        routerConfig: appRouter.router,
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
@@ -58,7 +66,6 @@ class MyApp extends StatelessWidget {
             titleMedium: TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        home: const WorkoutHistoryPage(),
       ),
     );
   }

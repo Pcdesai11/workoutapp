@@ -1,6 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import '../models/models.dart';
+
+class ExerciseInputs extends StatelessWidget {
+  final Exercise exercise;
+  final Function(double) onResultUpdated;
+
+  const ExerciseInputs({
+    Key? key,
+    required this.exercise,
+    required this.onResultUpdated,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    switch (exercise.unit) {
+      case MeasurementUnit.seconds:
+        return TimerInput(
+          onValueChanged: onResultUpdated,
+          targetValue: exercise.targetOutput,
+        );
+      case MeasurementUnit.repetitions:
+        return RepCounter(
+          onValueChanged: onResultUpdated,
+          targetValue: exercise.targetOutput,
+        );
+      case MeasurementUnit.meters:
+        return DistanceInput(
+          onValueChanged: onResultUpdated,
+          targetValue: exercise.targetOutput,
+        );
+      default:
+        return SliderInput(
+          onValueChanged: onResultUpdated,
+          targetValue: exercise.targetOutput,
+        );
+    }
+  }
+}
 
 class TimerInput extends StatefulWidget {
   final void Function(double) onValueChanged;
@@ -57,6 +95,10 @@ class _TimerInputState extends State<TimerInput> {
 
   @override
   Widget build(BuildContext context) {
+    final currentSeconds = _isRunning
+        ? _stopwatch.elapsedMilliseconds / 1000
+        : _seconds.toDouble();
+
     return Column(
       children: [
         Text(
@@ -70,6 +112,12 @@ class _TimerInputState extends State<TimerInput> {
           onPressed: _startStop,
           icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
           label: Text(_isRunning ? 'Stop' : 'Start'),
+        ),
+        const SizedBox(height: 8),
+        // Add the progress indicator here
+        ExerciseProgressIndicator(
+          currentValue: currentSeconds,
+          targetValue: widget.targetValue,
         ),
       ],
     );
@@ -95,37 +143,47 @@ class _RepCounterState extends State<RepCounter> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
       children: [
-        FloatingActionButton(
-          mini: true,
-          onPressed: () {
-            setState(() {
-              if (_count > 0) {
-                _count--;
-                widget.onValueChanged(_count.toDouble());
-              }
-            });
-          },
-          child: const Icon(Icons.remove),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FloatingActionButton(
+              mini: true,
+              onPressed: () {
+                setState(() {
+                  if (_count > 0) {
+                    _count--;
+                    widget.onValueChanged(_count.toDouble());
+                  }
+                });
+              },
+              child: const Icon(Icons.remove),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                '$_count',
+                style: const TextStyle(fontSize: 24),
+              ),
+            ),
+            FloatingActionButton(
+              mini: true,
+              onPressed: () {
+                setState(() {
+                  _count++;
+                  widget.onValueChanged(_count.toDouble());
+                });
+              },
+              child: const Icon(Icons.add),
+            ),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            '$_count',
-            style: const TextStyle(fontSize: 24),
-          ),
-        ),
-        FloatingActionButton(
-          mini: true,
-          onPressed: () {
-            setState(() {
-              _count++;
-              widget.onValueChanged(_count.toDouble());
-            });
-          },
-          child: const Icon(Icons.add),
+        const SizedBox(height: 12),
+        // Add the progress indicator
+        ExerciseProgressIndicator(
+          currentValue: _count.toDouble(),
+          targetValue: widget.targetValue,
         ),
       ],
     );
@@ -157,26 +215,41 @@ class _DistanceInputState extends State<DistanceInput> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-      ],
-      decoration: InputDecoration(
-        labelText: 'Enter distance',
-        suffixText: 'meters',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+    final distance = double.tryParse(_controller.text) ?? 0;
+
+    return Column(
+      children: [
+        TextField(
+          controller: _controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+          ],
+          decoration: InputDecoration(
+            labelText: 'Enter distance',
+            suffixText: 'meters',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onChanged: (value) {
+            final distance = double.tryParse(value) ?? 0;
+            widget.onValueChanged(distance);
+            // This will trigger a rebuild to update the progress indicator
+            setState(() {});
+          },
         ),
-      ),
-      onChanged: (value) {
-        final distance = double.tryParse(value) ?? 0;
-        widget.onValueChanged(distance);
-      },
+        const SizedBox(height: 12),
+        // Add the progress indicator
+        ExerciseProgressIndicator(
+          currentValue: distance,
+          targetValue: widget.targetValue,
+        ),
+      ],
     );
   }
 }
+
 
 class StepCounter extends StatefulWidget {
   final void Function(double) onValueChanged;
@@ -220,6 +293,12 @@ class _StepCounterState extends State<StepCounter> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ),
+        const SizedBox(height: 12),
+        // Add the progress indicator
+        ExerciseProgressIndicator(
+          currentValue: _steps.toDouble(),
+          targetValue: widget.targetValue,
+        ),
       ],
     );
   }
@@ -242,6 +321,7 @@ class SliderInput extends StatefulWidget {
 class _SliderInputState extends State<SliderInput> {
   double _value = 0;
 
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -263,7 +343,52 @@ class _SliderInputState extends State<SliderInput> {
             });
           },
         ),
+        const SizedBox(height: 8),
+        // Add the progress indicator
+        ExerciseProgressIndicator(
+          currentValue: _value,
+          targetValue: widget.targetValue,
+        ),
       ],
+    );
+  }
+}
+class ExerciseProgressIndicator extends StatelessWidget {
+  final double currentValue;
+  final double targetValue;
+
+  const ExerciseProgressIndicator({
+    Key? key,
+    required this.currentValue,
+    required this.targetValue,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = currentValue / targetValue;
+    final isSuccessful = currentValue >= targetValue;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Progress: ${(progress * 100).toStringAsFixed(0)}%'),
+              Text(isSuccessful ? 'Completed!' : 'In progress...'),
+            ],
+          ),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+            backgroundColor: Colors.grey.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isSuccessful ? Colors.green : Colors.blue,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
