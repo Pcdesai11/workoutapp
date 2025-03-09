@@ -1,11 +1,11 @@
-// lib/pages/join_workout_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import 'package:go_router/go_router.dart';
 import '../models/workout_plan.dart';
 import '../services/firebase_auth.dart';
 import '../services/group_workout_services.dart';
-import 'workout_recording_page.dart';
 
 class JoinWorkoutPage extends StatefulWidget {
   const JoinWorkoutPage({Key? key}) : super(key: key);
@@ -53,16 +53,12 @@ class _JoinWorkoutPageState extends State<JoinWorkoutPage> {
       final groupWorkoutStream = workoutService.streamWorkoutResults(inviteCode);
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WorkoutRecordingPage(
-              workoutPlan: workoutPlan,
-              inviteCode: inviteCode,
-              groupWorkoutStream: groupWorkoutStream,
-            ),
-          ),
-        );
+
+        context.go('/workout-recording', extra: {
+          'workoutPlan': workoutPlan,
+          'inviteCode': inviteCode,
+          'groupWorkoutStream': groupWorkoutStream,
+        });
       }
     } catch (e) {
       setState(() {
@@ -135,7 +131,7 @@ class _JoinWorkoutPageState extends State<JoinWorkoutPage> {
                     ? const CircularProgressIndicator()
                     : const Text('JOIN WORKOUT'),
               ),
-              // Add this button to JoinWorkoutPage's build method
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 icon: const Icon(Icons.qr_code_scanner),
                 label: const Text('SCAN QR CODE'),
@@ -162,7 +158,6 @@ class _JoinWorkoutPageState extends State<JoinWorkoutPage> {
                   }
                 },
               )
-
             ],
           ),
         ),

@@ -12,6 +12,7 @@ import '../services/firebase_auth.dart';
 import '../state/workout_state.dart';
 import '../widgets/exercise_inputs.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 
 class WorkoutRecordingPage extends StatefulWidget {
 
@@ -90,30 +91,34 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
         ScanMode.QR,
       );
       if (qrCode != '-1') {
-        // -1 is returned when scanning is canceled
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Scanned code: $qrCode')),
         );
 
-        // Join the workout using the scanned code
+
         try {
           final userId = _authService.getCurrentUserId();
           if (userId != null) {
             final workoutPlan = await _workoutService.joinGroupWorkout(qrCode, userId);
             if (workoutPlan != null) {
-              // Navigate to a new workout recording page with the joined workout
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => WorkoutRecordingPage(
-                    workoutPlan: workoutPlan,
-                    inviteCode: qrCode,
-                    groupWorkoutStream: _workoutService.streamWorkoutResults(qrCode),
-                  ),
-                ),
+              context.push(
+                '/workout-recording',
+                extra: {
+                  'workoutPlan': workoutPlan,
+                  'inviteCode': qrCode,
+                  'groupWorkoutStream': _workoutService.streamWorkoutResults(qrCode),
+                },
               );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invalid workout code')),
+            }   else {
+
+              context.push(
+                '/dialogs/confirmation',
+                extra: {
+                  'title': 'Error',
+                  'message': 'Invalid workout code',
+                  'confirmText': 'OK',
+                },
               );
             }
           } else {
@@ -216,9 +221,9 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
       );
     }
 
-    // For collaborative workouts with results
+
     if (isCollaborative && results.isNotEmpty) {
-      // Calculate aggregated results
+
       final aggregatedResults = <String, double>{};
       results.values.forEach((userResults) {
         (userResults as Map<String, dynamic>).forEach((exercise, value) {
@@ -264,7 +269,7 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
                     ? exercisesCompleted / totalExercises
                     : 0.0;
 
-                // Determine if this is the current user
+
                 final isCurrentUser = userId == _authService.getCurrentUserId();
 
                 return ListTile(
@@ -310,7 +315,7 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
       );
     }
 
-    // For competitive workouts with results
+
     if (!isCollaborative && results.isNotEmpty) {
       final rankings = _workoutService.calculateRankings(results);
       final currentUserId = _authService.getCurrentUserId();
@@ -346,14 +351,14 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
                 final userId = entry.key;
                 final userResults = entry.value as Map<String, dynamic>;
 
-                // Calculate completion percentage
+
                 final exercisesCompleted = userResults.length;
                 final totalExercises = widget.workoutPlan.exercises.length;
                 final completionPercentage = totalExercises > 0
                     ? exercisesCompleted / totalExercises
                     : 0.0;
 
-                // Determine if this is the current user
+
                 final isCurrentUser = userId == _authService.getCurrentUserId();
 
                 return ListTile(
@@ -400,7 +405,7 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
       );
     }
 
-    // Default case - this should not be reached if the logic above is correct
+
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
@@ -506,13 +511,13 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
     final userId = _authService.getCurrentUserId();
     if (userId == null || widget.inviteCode == null) return;
 
-    // Convert results to a map format acceptable for Firestore
+
     final Map<String, dynamic> resultMap = {};
     for (var entry in _results.entries) {
       resultMap[entry.key.name] = entry.value;
     }
 
-    // Update results in Firestore
+
     await _firestore.collection('group_workouts').doc(widget.inviteCode).update({
       'results.$userId': resultMap,
     });
@@ -527,7 +532,7 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
       final userId = _authService.getCurrentUserId();
 
       if (userId != null) {
-        // Create ExerciseResult objects for each completed exercise
+
         final exerciseResults = _results.entries.map((entry) =>
             ExerciseResult(
               exercise: entry.key,
@@ -535,17 +540,17 @@ class _WorkoutRecordingPageState extends State<WorkoutRecordingPage> {
             )
         ).toList();
 
-        // Create a Workout object
+
         final workout = Workout(
           date: DateTime.now(),
           results: exerciseResults,
         );
 
-        // Save workout to your storage/state management system
+
         Provider.of<WorkoutState>(context, listen: false).addWorkout(workout);
 
         if (widget.inviteCode != null) {
-          // Submit results to the group workout
+
           await _workoutService.submitWorkoutResults(
             widget.inviteCode!,
             userId,

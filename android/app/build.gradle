@@ -12,7 +12,7 @@ android {
     namespace = "com.example.workoutapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
-
+    namespace "com.amolg.flutterbarcodescanner"
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8

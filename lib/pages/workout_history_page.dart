@@ -1,31 +1,29 @@
-// Update your workout_history_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../state/workout_state.dart';
 import '../widgets/recent_performance_widget.dart';
 import '../models/workout_plan.dart';
 import '../services/firebase_auth.dart';
 import '../services/group_workout_services.dart';
-import 'workout_details.dart';
-import 'workout_recording_page.dart';
-import 'download_plan_page.dart';
-import 'join_workout_page.dart';
 
 class WorkoutHistoryPage extends StatelessWidget {
   const WorkoutHistoryPage({super.key});
 
-  // Method to get or create anonymous user
+
   Future<String> _getOrCreateAnonymousUser() async {
     try {
       final authService = AuthService();
       return await authService.getOrCreateAnonymousUser();
     } catch (e) {
-      // Handle error properly
+
       debugPrint('Error creating anonymous user: $e');
-      return ''; // Return empty string to prevent null errors
+      return '';
     }
   }
+
 
   void _showWorkoutTypeSelector(BuildContext context, WorkoutPlan plan) {
     showModalBottomSheet(
@@ -49,13 +47,12 @@ class WorkoutHistoryPage extends StatelessWidget {
               subtitle: const Text('Work out on your own'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => WorkoutRecordingPage(
-                      workoutPlan: plan,
-                    ),
-                  ),
+
+                context.push(
+                  '/workout-recording',
+                  extra: {
+                    'workoutPlan': plan,
+                  },
                 );
               },
             ),
@@ -63,58 +60,18 @@ class WorkoutHistoryPage extends StatelessWidget {
               leading: const Icon(Icons.group),
               title: const Text('Collaborative Workout'),
               subtitle: const Text('Work together to reach targets'),
-              onTap: () async {
-                Navigator.pop(context);
-                final workoutService = GroupWorkoutService();
-                final userId = await _getOrCreateAnonymousUser();
-                final inviteCode = await workoutService.createGroupWorkout(
-                  plan: plan,
-                  isCollaborative: true,
-                  creatorId: userId,
-                );
-                final groupWorkoutStream = workoutService.streamWorkoutResults(inviteCode);
+              onTap: () {
 
-                if (context.mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WorkoutRecordingPage(
-                        workoutPlan: plan,
-                        inviteCode: inviteCode,
-                        groupWorkoutStream: groupWorkoutStream,
-                      ),
-                    ),
-                  );
-                }
+                _handleGroupWorkout(context, plan, isCollaborative: true);
               },
             ),
             ListTile(
               leading: const Icon(Icons.emoji_events),
               title: const Text('Competitive Workout'),
               subtitle: const Text('Compete against others'),
-              onTap: () async {
-                Navigator.pop(context);
-                final workoutService = GroupWorkoutService();
-                final userId = await _getOrCreateAnonymousUser();
-                final inviteCode = await workoutService.createGroupWorkout(
-                  plan: plan,
-                  isCollaborative: false,
-                  creatorId: userId,
-                );
-                final groupWorkoutStream = workoutService.streamWorkoutResults(inviteCode);
+              onTap: () {
 
-                if (context.mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WorkoutRecordingPage(
-                        workoutPlan: plan,
-                        inviteCode: inviteCode,
-                        groupWorkoutStream: groupWorkoutStream,
-                      ),
-                    ),
-                  );
-                }
+                _handleGroupWorkout(context, plan, isCollaborative: false);
               },
             ),
           ],
@@ -123,6 +80,186 @@ class WorkoutHistoryPage extends StatelessWidget {
     );
   }
 
+
+  Future<void> _handleGroupWorkout(
+      BuildContext context,
+      WorkoutPlan plan,
+      {required bool isCollaborative}
+      ) async {
+
+    Navigator.pop(context);
+
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+
+    bool hasShownSnackbar = false;
+
+
+    bool hasNavigated = false;
+
+
+    BuildContext? dialogContext;
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          dialogContext = ctx;
+          return const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Setting up workout session...'),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+
+    bool isTimedOut = false;
+    Future.delayed(const Duration(seconds: 2), () {
+      isTimedOut = true;
+
+
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.pop(dialogContext!);
+      }
+
+
+      if (!hasShownSnackbar && !hasNavigated) {
+        hasShownSnackbar = true;
+        scaffoldMessenger.clearSnackBars();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            content: const Text('The QR code is generated now. Select your Workout once again.'),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: 'OK',
+              onPressed: () {
+                if (context.mounted) {
+                  _showWorkoutTypeSelector(context, plan);
+                }
+              },
+            ),
+          ),
+        );
+      }
+    });
+
+    try {
+
+      print('Starting group workout setup...');
+
+
+      final authService = AuthService();
+      print('Getting anonymous user...');
+      final userId = await authService.getOrCreateAnonymousUser();
+      print('User ID obtained: ${userId.substring(0, 4)}...');
+
+
+      final workoutService = GroupWorkoutService();
+      print('Creating group workout...');
+      final inviteCode = await workoutService.createGroupWorkout(
+        plan: plan,
+        isCollaborative: isCollaborative,
+        creatorId: userId,
+      );
+      print('Group workout created with code: $inviteCode');
+
+
+      print('Setting up workout results stream...');
+      final groupWorkoutStream = workoutService.streamWorkoutResults(inviteCode);
+      print('Stream setup complete');
+
+
+      if (isTimedOut) {
+        print('Timeout occurred, aborting navigation');
+        return;
+      }
+
+
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.pop(dialogContext!);
+      }
+
+
+      if (context.mounted) {
+
+        hasNavigated = true;
+
+
+        Future.microtask(() {
+          context.push(
+            '/workout-recording',
+            extra: {
+              'workoutPlan': plan,
+              'inviteCode': inviteCode,
+              'groupWorkoutStream': groupWorkoutStream,
+            },
+          );
+        });
+      }
+    } catch (e) {
+      print('Error in _handleGroupWorkout: $e');
+
+
+      if (isTimedOut) return;
+
+
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.pop(dialogContext!);
+      }
+
+
+      if (!hasShownSnackbar) {
+        hasShownSnackbar = true;
+        scaffoldMessenger.clearSnackBars();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            content: const Text('Enjoy!'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red.shade700,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                if (context.mounted) {
+                  _showWorkoutTypeSelector(context, plan);
+                }
+              },
+            ),
+          ),
+        );
+      }
+
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Workout Setup Error'),
+            content: Text('Failed to create workout: ${e.toString()}\n\nPlease try again and share your QR code with participants.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
   void _showWorkoutPlanSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -178,7 +315,7 @@ class WorkoutHistoryPage extends StatelessWidget {
                           subtitle: Text('${plan.exercises.length} exercises'),
                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                           onTap: () {
-                            Navigator.pop(context); // Close bottom sheet
+                            Navigator.pop(context);
                             _showWorkoutTypeSelector(context, plan);
                           },
                         ),
@@ -207,15 +344,8 @@ class WorkoutHistoryPage extends StatelessWidget {
             icon: const Icon(Icons.cloud_download),
             tooltip: 'Download new plan',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DownloadPlanPage(
-                    database: Provider.of<WorkoutState>(context, listen: false)
-                        .database,
-                  ),
-                ),
-              );
+
+              context.push('/download-plan');
             },
           ),
         ],
@@ -227,12 +357,8 @@ class WorkoutHistoryPage extends StatelessWidget {
             heroTag: 'joinWorkout',
             mini: true,
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const JoinWorkoutPage(),
-                ),
-              );
+
+              context.push('/join-workout');
             },
             child: const Icon(Icons.group_add),
           ),
@@ -303,12 +429,10 @@ class WorkoutHistoryPage extends StatelessWidget {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  WorkoutDetails(workout: workout),
-                            ),
+
+                          context.push(
+                            '/workout-details',
+                            extra: workout,
                           );
                         },
                         child: Padding(

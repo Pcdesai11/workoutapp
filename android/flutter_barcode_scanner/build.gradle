@@ -1,0 +1,4 @@
+android {
+    namespace "com.amolg.flutterbarcodescanner"
+    // No need for other configurations
+}

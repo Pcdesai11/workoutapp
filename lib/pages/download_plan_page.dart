@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-
+import 'package:go_router/go_router.dart';
 import '../database/database.dart';
 import '../models/workout_plan.dart';
 import '../models/models.dart';
@@ -40,15 +40,21 @@ class _DownloadPlanPageState extends State<DownloadPlanPage> {
     });
 
     try {
-      final response = await http.get(Uri.parse(_urlController.text));
+      // Add a timeout to avoid indefinite waiting
+      final proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      final response = await http.get(Uri.parse(proxyUrl + _urlController.text))
+          .timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Request timed out'),
+      );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
         // Parse the workout plan from the response
         if (data['name'] != null && data['exercises'] != null) {
           final exercises = (data['exercises'] as List).map((e) {
-            // Use the correct key "target" instead of "targetOutput"
-            final target = e['target'] ?? 0.0; // Default to 0.0 if null
+            final target = e['target'] ?? 0.0;
             return Exercise(
               name: e['name'],
               targetOutput: target.toDouble(),
@@ -73,9 +79,11 @@ class _DownloadPlanPageState extends State<DownloadPlanPage> {
         });
       }
     } catch (e) {
+      // More detailed error message for debugging
       setState(() {
-        _error = 'Error: ${e.toString()}';
+        _error = 'Error: ${e.toString()}. This might be due to CORS restrictions or network issues.';
       });
+      print('Detailed error: $e'); // For debugging in console
     } finally {
       setState(() {
         _isLoading = false;
@@ -103,7 +111,8 @@ class _DownloadPlanPageState extends State<DownloadPlanPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Workout plan saved!')),
       );
-      Navigator.pop(context);
+
+      context.pop();
     }
   }
 
